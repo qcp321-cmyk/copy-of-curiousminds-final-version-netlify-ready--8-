@@ -18,7 +18,7 @@ const DEFAULT_LIMITS: UserUsageLimits = {
   oceanLimit: 5
 };
 
-export const ALL_PERMISSIONS = ['OVERVIEW', 'VISITORS', 'ARCHIVE', 'VOICE_MESSAGES', 'BOOKINGS', 'LOGS', 'ACCESS', 'SETTINGS'];
+export const ALL_PERMISSIONS = ['OVERVIEW', 'VISITORS', 'USERS', 'ARCHIVE', 'VOICE_MESSAGES', 'BOOKINGS', 'LOGS', 'ACCESS', 'SETTINGS'];
 
 class MockBackendService {
   private users: UserProfile[] = [];

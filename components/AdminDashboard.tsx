@@ -9,7 +9,7 @@ import {
   ShieldCheck, Monitor, Smartphone, Monitor as DesktopIcon, Tablet as TabletIcon, 
   HardDrive, Inbox, UserPlus, MessageSquare, Play, Trash2, Square, Pause, 
   ChevronDown, ChevronUp, Eye, UserPlus2, ShieldAlert, CheckCircle2, Ticket, User,
-  Mail, Phone, Laptop
+  Mail, Phone, Laptop, Gauge, Save, AlertTriangle
 } from 'lucide-react';
 import LiveGlobe from './LiveGlobe';
 
@@ -20,6 +20,7 @@ interface AdminDashboardProps {
 const ALL_SECTIONS = [
   { id: 'OVERVIEW', icon: Activity, label: 'Overview' },
   { id: 'VISITORS', icon: Radar, label: 'Active Visitors' },
+  { id: 'USERS', icon: Gauge, label: 'Usage Limits' },
   { id: 'BOOKINGS', icon: Ticket, label: 'Demo Bookings' },
   { id: 'ARCHIVE', icon: Inbox, label: 'Visitor History' },
   { id: 'VOICE_MESSAGES', icon: MessageSquare, label: 'Voice Messages' },
@@ -53,6 +54,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
 
   const [playingId, setPlayingId] = useState<string | null>(null);
   const audioInstanceRef = useRef<HTMLAudioElement | null>(null);
+  
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editLimits, setEditLimits] = useState({ scenarioLimit: 3, beYouLimit: 3, oceanLimit: 5 });
+  const [usageSearch, setUsageSearch] = useState('');
 
   const currentSessionId = useMemo(() => mockBackend.getCurrentSessionId(), []);
 
@@ -244,6 +249,122 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
                       </div>
                     ))}
                  </div>
+              </div>
+            )}
+
+            {/* User Usage Limits Management */}
+            {activeTab === 'USERS' && (
+              <div className="space-y-6 animate-in fade-in max-w-6xl mx-auto">
+                <div className="flex flex-col sm:flex-row justify-between gap-4">
+                  <div>
+                    <h3 className="text-2xl font-black text-white uppercase italic">Engine Limits</h3>
+                    <p className="text-[9px] text-gray-500 uppercase tracking-widest mt-1">Real-time usage sync // Per user controls</p>
+                  </div>
+                  <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+                    <input value={usageSearch} onChange={e => setUsageSearch(e.target.value)} className="bg-white/5 border border-white/10 rounded-xl py-2.5 pl-12 pr-6 text-xs text-white outline-none w-full sm:w-64" placeholder="Search users..." />
+                  </div>
+                </div>
+                
+                {/* Legend */}
+                <div className="flex flex-wrap gap-4 text-[8px] font-black uppercase tracking-widest">
+                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-cyan-600"></div><span className="text-gray-500">Scenario Engine</span></div>
+                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-purple-600"></div><span className="text-gray-500">BeYou Engine</span></div>
+                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-emerald-600"></div><span className="text-gray-500">Ocean Engine</span></div>
+                </div>
+
+                <div className="space-y-3">
+                  {users.filter(u => u.name.toLowerCase().includes(usageSearch.toLowerCase()) || u.email.toLowerCase().includes(usageSearch.toLowerCase())).map(user => {
+                    const isExhausted = (used: number, limit: number) => used >= limit;
+                    const scenarioExhausted = isExhausted(user.usage.scenarioCount, user.limits.scenarioLimit);
+                    const beYouExhausted = isExhausted(user.usage.beYouCount, user.limits.beYouLimit);
+                    const oceanExhausted = isExhausted(user.usage.oceanCount, user.limits.oceanLimit);
+                    const anyExhausted = scenarioExhausted || beYouExhausted || oceanExhausted;
+                    
+                    return (
+                      <div key={user.id} className={`bg-white/[0.03] border rounded-2xl p-4 sm:p-6 transition-all ${anyExhausted ? 'border-orange-500/30' : 'border-white/5'}`}>
+                        <div className="flex flex-col lg:flex-row justify-between gap-4">
+                          {/* User Info */}
+                          <div className="flex items-center gap-4 min-w-0">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${anyExhausted ? 'bg-orange-600/20 text-orange-500' : 'bg-cyan-600/20 text-cyan-500'}`}>
+                              {anyExhausted ? <AlertTriangle className="w-5 h-5" /> : <User className="w-5 h-5" />}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-black text-white uppercase truncate">{user.name}</p>
+                              <p className="text-[8px] text-gray-500 truncate">{user.email}</p>
+                            </div>
+                          </div>
+                          
+                          {/* Usage Bars */}
+                          {editingUserId !== user.id ? (
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1 lg:max-w-md">
+                              {/* Scenario */}
+                              <div className="flex-1 space-y-1">
+                                <div className="flex justify-between text-[7px] font-black uppercase">
+                                  <span className="text-cyan-500">Scenario</span>
+                                  <span className={scenarioExhausted ? 'text-orange-500' : 'text-gray-500'}>{user.usage.scenarioCount}/{user.limits.scenarioLimit}</span>
+                                </div>
+                                <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full transition-all ${scenarioExhausted ? 'bg-orange-500' : 'bg-cyan-600'}`} style={{width: `${Math.min((user.usage.scenarioCount / user.limits.scenarioLimit) * 100, 100)}%`}} />
+                                </div>
+                              </div>
+                              {/* BeYou */}
+                              <div className="flex-1 space-y-1">
+                                <div className="flex justify-between text-[7px] font-black uppercase">
+                                  <span className="text-purple-500">BeYou</span>
+                                  <span className={beYouExhausted ? 'text-orange-500' : 'text-gray-500'}>{user.usage.beYouCount}/{user.limits.beYouLimit}</span>
+                                </div>
+                                <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full transition-all ${beYouExhausted ? 'bg-orange-500' : 'bg-purple-600'}`} style={{width: `${Math.min((user.usage.beYouCount / user.limits.beYouLimit) * 100, 100)}%`}} />
+                                </div>
+                              </div>
+                              {/* Ocean */}
+                              <div className="flex-1 space-y-1">
+                                <div className="flex justify-between text-[7px] font-black uppercase">
+                                  <span className="text-emerald-500">Ocean</span>
+                                  <span className={oceanExhausted ? 'text-orange-500' : 'text-gray-500'}>{user.usage.oceanCount}/{user.limits.oceanLimit}</span>
+                                </div>
+                                <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full transition-all ${oceanExhausted ? 'bg-orange-500' : 'bg-emerald-600'}`} style={{width: `${Math.min((user.usage.oceanCount / user.limits.oceanLimit) * 100, 100)}%`}} />
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            /* Edit Mode */
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1 lg:max-w-md">
+                              <div className="flex-1 space-y-1">
+                                <label className="text-[7px] font-black text-cyan-500 uppercase">Scenario Limit</label>
+                                <input type="number" min="0" value={editLimits.scenarioLimit} onChange={e => setEditLimits({...editLimits, scenarioLimit: parseInt(e.target.value) || 0})} className="w-full bg-white/5 border border-cyan-500/30 rounded-lg px-3 py-2 text-xs text-white outline-none" />
+                              </div>
+                              <div className="flex-1 space-y-1">
+                                <label className="text-[7px] font-black text-purple-500 uppercase">BeYou Limit</label>
+                                <input type="number" min="0" value={editLimits.beYouLimit} onChange={e => setEditLimits({...editLimits, beYouLimit: parseInt(e.target.value) || 0})} className="w-full bg-white/5 border border-purple-500/30 rounded-lg px-3 py-2 text-xs text-white outline-none" />
+                              </div>
+                              <div className="flex-1 space-y-1">
+                                <label className="text-[7px] font-black text-emerald-500 uppercase">Ocean Limit</label>
+                                <input type="number" min="0" value={editLimits.oceanLimit} onChange={e => setEditLimits({...editLimits, oceanLimit: parseInt(e.target.value) || 0})} className="w-full bg-white/5 border border-emerald-500/30 rounded-lg px-3 py-2 text-xs text-white outline-none" />
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Actions */}
+                          <div className="flex gap-2 shrink-0">
+                            {editingUserId === user.id ? (
+                              <>
+                                <button onClick={() => { mockBackend.updateUserLimits(user.id, editLimits); setEditingUserId(null); fetchData(); }} className="px-4 py-2 bg-green-600 text-white text-[9px] font-black uppercase rounded-xl flex items-center gap-2">
+                                  <Save className="w-3 h-3" /> Save
+                                </button>
+                                <button onClick={() => setEditingUserId(null)} className="px-4 py-2 bg-white/5 text-gray-400 text-[9px] font-black uppercase rounded-xl">Cancel</button>
+                              </>
+                            ) : (
+                              <button onClick={() => { setEditingUserId(user.id); setEditLimits({...user.limits}); }} className="px-4 py-2 bg-white/5 text-cyan-500 text-[9px] font-black uppercase rounded-xl hover:bg-cyan-500/10 transition-all">Edit Limits</button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 

@@ -10,7 +10,7 @@ import {
   RefreshCw, FileDown, Wand2, AlertTriangle, Rocket, FlaskConical, Palette, 
   TrendingUp, Fingerprint, Globe, Microscope, Shield, Binary, Code, Heart, Activity,
   Share2, Link, ShieldAlert, Headphones, Play, Pause, Square, Bot, ChevronRight, UserCircle2,
-  ShieldCheck, Bookmark, Gauge
+  ShieldCheck, Bookmark, Gauge, MessageCircle, Phone, X
 } from 'lucide-react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -156,6 +156,7 @@ const ScenarioGenerator: React.FC<ScenarioGeneratorProps> = ({ currentUser, onRe
   const [activeTab, setActiveTab] = useState<'ROADMAP' | 'CHAT'>('ROADMAP');
   const [selectedLanguage, setSelectedLanguage] = useState('English');
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [showLimitExhausted, setShowLimitExhausted] = useState(false);
   
   const resultRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -408,7 +409,7 @@ const ScenarioGenerator: React.FC<ScenarioGeneratorProps> = ({ currentUser, onRe
     e.preventDefault();
     if (!topic || !grade) return;
     if (!currentUser) { onRequireAuth(); return; }
-    if (!mockBackend.checkUsageLimit(currentUser.id, 'SCENARIO')) { alert("Daily usage limit reached."); return; }
+    if (!mockBackend.checkUsageLimit(currentUser.id, 'SCENARIO')) { setShowLimitExhausted(true); return; }
     setData(null); setLoading(true); stopAudio();
     
     mockBackend.trackEvent(currentUser.id, 'FORM_SUBMISSION', 'Scenario generation inquiry', { topic, grade, difficulty });
@@ -835,6 +836,29 @@ const ScenarioGenerator: React.FC<ScenarioGeneratorProps> = ({ currentUser, onRe
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: rgba(255,255,255,0.05); border-radius: 3px; }
         input[type=range]::-webkit-slider-thumb { height: 14px; width: 14px; border-radius: 7px; background: #fff; cursor: pointer; -webkit-appearance: none; margin-top: -4px; box-shadow: 0 0 10px rgba(34,211,238,0.5); }
       `}</style>
+
+      {/* Limit Exhausted Popup */}
+      {showLimitExhausted && (
+        <div className="fixed inset-0 z-[300] bg-black/95 backdrop-blur-3xl flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-[#080808] border border-orange-500/30 rounded-[2.5rem] w-full max-w-md p-8 text-center relative shadow-2xl">
+            <button onClick={() => setShowLimitExhausted(false)} className="absolute top-4 right-4 p-2 bg-white/5 rounded-full text-gray-500 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
+            <div className="p-4 bg-orange-500/10 rounded-2xl inline-block mb-6">
+              <AlertTriangle className="w-10 h-10 text-orange-500" />
+            </div>
+            <h3 className="text-2xl font-black text-white uppercase italic mb-3">Usage Limit Reached</h3>
+            <p className="text-sm text-gray-400 mb-8 leading-relaxed">You've exhausted your Scenario Engine generations for today. Connect with our team to unlock more learning sessions.</p>
+            <div className="space-y-3">
+              <a href="https://wa.me/917970750727?text=Hi%20CuriousMinds!%20I've%20reached%20my%20Scenario%20Engine%20limit%20and%20would%20like%20to%20continue%20learning." target="_blank" rel="noopener noreferrer" className="w-full py-4 bg-green-600 text-white font-black uppercase text-xs tracking-widest rounded-2xl flex items-center justify-center gap-3 hover:bg-green-500 transition-all active:scale-95">
+                <MessageCircle className="w-5 h-5" /> Connect on WhatsApp
+              </a>
+              <a href="tel:+917970750727" className="w-full py-4 bg-white/5 border border-white/10 text-white font-black uppercase text-xs tracking-widest rounded-2xl flex items-center justify-center gap-3 hover:bg-white/10 transition-all active:scale-95">
+                <Phone className="w-5 h-5" /> Call Us Directly
+              </a>
+            </div>
+            <p className="text-[9px] text-gray-600 mt-6 uppercase tracking-widest">Limits reset daily at midnight</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
