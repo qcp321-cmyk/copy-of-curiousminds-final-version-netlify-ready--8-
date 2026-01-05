@@ -2,8 +2,8 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { GoogleGenAI, Type } from "@google/genai";
 
 // Model tiers with fallbacks - latest to stable
-const FAST_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b"];
-const PRO_MODELS = ["gemini-3.0-pro", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"];
+const FAST_MODELS = ["gemini-3-flash-preview", "gemini-2.0-flash", "gemini-1.5-flash"];
+const PRO_MODELS = ["gemini-3-pro-preview", "gemini-3-flash-preview", "gemini-2.0-flash", "gemini-1.5-pro"];
 
 const getAI = () => new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
