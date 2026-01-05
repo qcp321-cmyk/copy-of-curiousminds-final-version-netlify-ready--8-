@@ -403,27 +403,35 @@ const App: React.FC = () => {
           <button onClick={() => setIsRegistrationOpen(true)} className="bg-white text-black px-4 sm:px-8 py-2 sm:py-3 rounded-full text-[8px] sm:text-[10px] font-black uppercase tracking-[0.2em] hover:bg-cyan-400 transition-all active:scale-95 shadow-2xl shrink-0">
             Join Now
           </button>
-          <button onClick={() => setIsNavOpen(true)} className="p-2 sm:p-3 md:hidden text-gray-400 hover:text-white transition-colors bg-white/5 rounded-xl border border-white/10">
-            <Menu className="w-5 h-5" />
+          <button onClick={() => setIsNavOpen(!isNavOpen)} className="p-2 sm:p-3 md:hidden text-gray-400 hover:text-white transition-all bg-white/5 rounded-xl border border-white/10 relative overflow-hidden group">
+            <div className={`transition-all duration-300 ${isNavOpen ? 'rotate-180 scale-0 opacity-0' : 'rotate-0 scale-100 opacity-100'}`}>
+              <Menu className="w-5 h-5" />
+            </div>
+            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${isNavOpen ? 'rotate-0 scale-100 opacity-100' : '-rotate-180 scale-0 opacity-0'}`}>
+              <X className="w-5 h-5" />
+            </div>
           </button>
         </div>
       </nav>
 
       {isNavOpen && (
-        <div className="fixed inset-0 z-[200] bg-black/98 backdrop-blur-3xl flex flex-col items-center justify-center p-8 animate-in fade-in slide-in-from-top-4 duration-300 md:hidden" data-lenis-prevent>
-            <button onClick={() => setIsNavOpen(false)} className="absolute top-6 right-6 p-4 bg-white/5 rounded-full text-white active:scale-90"><X className="w-7 h-7" /></button>
-            <div className="flex flex-col items-center gap-10 text-center w-full max-w-xs">
-                <button onClick={() => { setIsNavOpen(false); setIsMissionPageOpen(true); }} className="text-2xl sm:text-3xl font-black uppercase tracking-widest text-white italic hover:text-cyan-400 transition-colors">Mission</button>
-                <button onClick={() => { setIsNavOpen(false); setIsProductOpen(true); }} className="text-2xl sm:text-3xl font-black uppercase tracking-widest text-white italic hover:text-cyan-400 transition-colors">Products</button>
-                <button onClick={() => { setIsNavOpen(false); setIsToolkitOpen(true); }} className="text-2xl sm:text-3xl font-black uppercase tracking-widest text-white italic hover:text-cyan-400 transition-colors">Toolkit</button>
-                <button onClick={() => { setIsNavOpen(false); scrollToSection('ocean'); }} className="text-2xl sm:text-3xl font-black uppercase tracking-widest text-white italic hover:text-cyan-400 transition-colors">Discovery</button>
-                <button onClick={() => { setIsNavOpen(false); setIsReferralOpen(true); }} className="text-2xl sm:text-3xl font-black uppercase tracking-widest text-white italic hover:text-cyan-400 transition-colors">Referrals</button>
-                <div className="w-16 h-1 bg-cyan-600/30 rounded-full my-4"></div>
-                <button onClick={() => { setIsNavOpen(false); setIsVisionOpen(true); }} className="text-[10px] font-black uppercase tracking-[0.5em] text-gray-500 hover:text-white transition-colors">Vision</button>
+        <div className="fixed inset-0 z-[200] bg-black/98 backdrop-blur-3xl flex flex-col items-center justify-center p-6 sm:p-8 md:hidden" data-lenis-prevent>
+            <div className="absolute inset-0 bg-gradient-to-b from-cyan-900/10 to-transparent pointer-events-none"></div>
+            <button onClick={() => setIsNavOpen(false)} className="absolute top-4 right-4 sm:top-6 sm:right-6 p-3 sm:p-4 bg-white/5 rounded-full text-white active:scale-90 transition-transform hover:bg-white/10 border border-white/10">
+              <X className="w-6 h-6 sm:w-7 sm:h-7" />
+            </button>
+            <nav className="flex flex-col items-center gap-6 sm:gap-8 text-center w-full max-w-xs relative z-10">
+                <button onClick={() => { setIsNavOpen(false); setIsMissionPageOpen(true); }} className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-wider sm:tracking-widest text-white italic hover:text-cyan-400 transition-all hover:scale-105 active:scale-95 animate-in fade-in slide-in-from-bottom-2 duration-300" style={{animationDelay: '50ms'}}>Mission</button>
+                <button onClick={() => { setIsNavOpen(false); setIsProductOpen(true); }} className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-wider sm:tracking-widest text-white italic hover:text-cyan-400 transition-all hover:scale-105 active:scale-95 animate-in fade-in slide-in-from-bottom-2 duration-300" style={{animationDelay: '100ms'}}>Products</button>
+                <button onClick={() => { setIsNavOpen(false); setIsToolkitOpen(true); }} className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-wider sm:tracking-widest text-white italic hover:text-cyan-400 transition-all hover:scale-105 active:scale-95 animate-in fade-in slide-in-from-bottom-2 duration-300" style={{animationDelay: '150ms'}}>Toolkit</button>
+                <button onClick={() => { setIsNavOpen(false); scrollToSection('ocean'); }} className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-wider sm:tracking-widest text-white italic hover:text-cyan-400 transition-all hover:scale-105 active:scale-95 animate-in fade-in slide-in-from-bottom-2 duration-300" style={{animationDelay: '200ms'}}>Discovery</button>
+                <button onClick={() => { setIsNavOpen(false); setIsReferralOpen(true); }} className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-wider sm:tracking-widest text-white italic hover:text-cyan-400 transition-all hover:scale-105 active:scale-95 animate-in fade-in slide-in-from-bottom-2 duration-300" style={{animationDelay: '250ms'}}>Referrals</button>
+                <div className="w-16 h-1 bg-cyan-600/30 rounded-full my-2 sm:my-4 animate-in fade-in duration-500" style={{animationDelay: '300ms'}}></div>
+                <button onClick={() => { setIsNavOpen(false); setIsVisionOpen(true); }} className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.4em] sm:tracking-[0.5em] text-gray-500 hover:text-white transition-colors animate-in fade-in slide-in-from-bottom-2 duration-300" style={{animationDelay: '350ms'}}>Vision</button>
                 {currentUser?.role === 'ADMIN' && (
-                    <button onClick={() => { setIsNavOpen(false); setIsAdminOpen(true); }} className="text-[10px] font-black uppercase tracking-[0.5em] text-red-500 border border-red-500/20 px-6 py-2 rounded-full">Admin Node</button>
+                    <button onClick={() => { setIsNavOpen(false); setIsAdminOpen(true); }} className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.4em] sm:tracking-[0.5em] text-red-500 border border-red-500/20 px-5 sm:px-6 py-2 rounded-full hover:bg-red-500/10 transition-all animate-in fade-in slide-in-from-bottom-2 duration-300" style={{animationDelay: '400ms'}}>Admin Node</button>
                 )}
-            </div>
+            </nav>
         </div>
       )}
 
