@@ -25,16 +25,16 @@ type AudioChoice = 'HUMANIZED' | 'DEEP_DIVE' | 'BOTH';
 // Cache key for persistent audio state
 const AUDIO_CACHE_KEY = 'ocean_audio_state';
 
-// Language to speech voice mapping
-const VOICE_LANG_MAP: Record<string, string> = {
-  'English': 'en-US',
-  'Hindi': 'hi-IN',
-  'Spanish': 'es-ES',
-  'French': 'fr-FR',
-  'German': 'de-DE',
-  'Japanese': 'ja-JP',
-  'Malayalam': 'ml-IN',
-  'Kannada': 'kn-IN'
+// Language to speech voice mapping with pronunciation settings
+const VOICE_LANG_MAP: Record<string, { lang: string; pitch: number; rate: number; pauseMs: number }> = {
+  'English': { lang: 'en-US', pitch: 1.0, rate: 1.0, pauseMs: 200 },
+  'Hindi': { lang: 'hi-IN', pitch: 1.05, rate: 0.9, pauseMs: 300 },
+  'Spanish': { lang: 'es-ES', pitch: 1.0, rate: 0.95, pauseMs: 250 },
+  'French': { lang: 'fr-FR', pitch: 1.0, rate: 0.92, pauseMs: 280 },
+  'German': { lang: 'de-DE', pitch: 0.95, rate: 0.88, pauseMs: 320 },
+  'Japanese': { lang: 'ja-JP', pitch: 1.1, rate: 0.85, pauseMs: 350 },
+  'Malayalam': { lang: 'ml-IN', pitch: 1.0, rate: 0.82, pauseMs: 380 },
+  'Kannada': { lang: 'kn-IN', pitch: 1.0, rate: 0.85, pauseMs: 350 }
 };
 
 const AudioVisualizer = () => (
@@ -164,19 +164,44 @@ const EngineOcean: React.FC = () => {
       return;
     }
     
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = VOICE_LANG_MAP[selectedLanguage] || 'en-US';
-    utterance.rate = audioSpeed;
-    utterance.volume = audioVolume;
-    utterance.pitch = 1;
+    // Get language-specific settings for pronunciation adaptation
+    const langSettings = VOICE_LANG_MAP[selectedLanguage] || VOICE_LANG_MAP['English'];
     
-    // Get best voice for language
+    // Process text for better clarity - add natural pauses
+    let processedText = text
+      .replace(/\. /g, `. <break time="${langSettings.pauseMs}ms"/> `) // Pause after sentences
+      .replace(/\, /g, `, <break time="${Math.floor(langSettings.pauseMs * 0.5)}ms"/> `) // Shorter pause for commas
+      .replace(/\: /g, `: <break time="${Math.floor(langSettings.pauseMs * 0.7)}ms"/> `) // Medium pause for colons
+      .replace(/\n/g, ` <break time="${langSettings.pauseMs}ms"/> `); // Pause for line breaks
+    
+    // For SSML-unsupported browsers, use simple punctuation spacing
+    const simpleText = text
+      .replace(/\./g, '. ')
+      .replace(/\,/g, ', ')
+      .replace(/\n+/g, '. ');
+    
+    const utterance = new SpeechSynthesisUtterance(simpleText);
+    utterance.lang = langSettings.lang;
+    utterance.rate = langSettings.rate * audioSpeed; // Combine language rate with user speed
+    utterance.volume = audioVolume;
+    utterance.pitch = langSettings.pitch;
+    
+    // Get best native voice for language with proper pronunciation
     const voices = speechSynthesis.getVoices();
-    const langCode = VOICE_LANG_MAP[selectedLanguage] || 'en-US';
-    const preferredVoice = voices.find(v => v.lang.startsWith(langCode.split('-')[0]) && v.localService) ||
-                           voices.find(v => v.lang.startsWith(langCode.split('-')[0])) ||
-                           voices.find(v => v.default);
-    if (preferredVoice) utterance.voice = preferredVoice;
+    const langCode = langSettings.lang;
+    const langPrefix = langCode.split('-')[0];
+    
+    // Priority: Native language voice > Local service > Any matching > Default
+    const preferredVoice = 
+      voices.find(v => v.lang === langCode && v.localService) ||
+      voices.find(v => v.lang === langCode) ||
+      voices.find(v => v.lang.startsWith(langPrefix) && v.localService) ||
+      voices.find(v => v.lang.startsWith(langPrefix)) ||
+      voices.find(v => v.default);
+    
+    if (preferredVoice) {
+      utterance.voice = preferredVoice;
+    }
     
     utterance.onend = () => {
       setAudioStatus('IDLE');
