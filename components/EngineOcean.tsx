@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, Waves, Volume2, Loader2, Sparkles, BookOpen, GraduationCap, Target, ExternalLink, FileDown, Globe, Play, Pause, Square, User, Bot, Microscope, Activity, Gauge, Headphones, X, CheckCircle2, Bookmark, ImageIcon, Info, HelpCircle, Volume1, VolumeX, MessageCircle, AlertTriangle, Phone } from 'lucide-react';
-import { engineOceanQuery, generateSpeech, deepDiveQuery, generateFounderRemark, translateEngineResult, generateMissionImage } from '../services/geminiService';
+import { engineOceanQuery, deepDiveQuery, generateFounderRemark, translateEngineResult, generateMissionImage } from '../services/geminiService';
 import { jsPDF } from 'jspdf';
 import { mockBackend } from '../services/mockBackend';
 
@@ -21,6 +21,21 @@ const PLAYBACK_SPEEDS = [1, 1.25, 1.5, 2];
 
 type AudioStatus = 'IDLE' | 'LOADING' | 'PLAYING' | 'PAUSED';
 type AudioChoice = 'HUMANIZED' | 'DEEP_DIVE' | 'BOTH';
+
+// Cache key for persistent audio state
+const AUDIO_CACHE_KEY = 'ocean_audio_state';
+
+// Language to speech voice mapping
+const VOICE_LANG_MAP: Record<string, string> = {
+  'English': 'en-US',
+  'Hindi': 'hi-IN',
+  'Spanish': 'es-ES',
+  'French': 'fr-FR',
+  'German': 'de-DE',
+  'Japanese': 'ja-JP',
+  'Malayalam': 'ml-IN',
+  'Kannada': 'kn-IN'
+};
 
 const AudioVisualizer = () => (
   <div className="flex items-end gap-[2px] h-3 w-4">
@@ -55,45 +70,86 @@ const EngineOcean: React.FC = () => {
 
   const currentUser = mockBackend.getCurrentUser();
 
-  // Audio Playback Refs
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
-  const audioBufferRef = useRef<AudioBuffer | null>(null);
-  const gainNodeRef = useRef<GainNode | null>(null);
-  const startTimeRef = useRef<number>(0);
-  const offsetRef = useRef<number>(0);
+  // Web Speech API Refs for smooth unlimited playback
+  const speechSynthRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const speechTextRef = useRef<string>('');
+  const speechProgressRef = useRef<number>(0);
   const rafRef = useRef<number | null>(null);
+  const estimatedDurationRef = useRef<number>(0);
+  const playbackStartTimeRef = useRef<number>(0);
 
   const resultRef = useRef<HTMLDivElement>(null);
   const sessionHistoryRef = useRef<{ query: string; summary: string }[]>([]);
 
+  // Pre-warm speech synthesis on mount for instant playback
   useEffect(() => {
+    // Preload voices
+    if ('speechSynthesis' in window) {
+      speechSynthesis.getVoices();
+      speechSynthesis.addEventListener('voiceschanged', () => speechSynthesis.getVoices());
+    }
+    
+    // Restore persisted state if exists
+    try {
+      const cached = localStorage.getItem(AUDIO_CACHE_KEY);
+      if (cached) {
+        const { query: cachedQuery, text, progress } = JSON.parse(cached);
+        if (cachedQuery && text) {
+          speechTextRef.current = text;
+          speechProgressRef.current = progress || 0;
+        }
+      }
+    } catch (e) {}
+    
     return () => {
       stopAudio();
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
 
+  // Update volume in real-time
   useEffect(() => {
-    if (gainNodeRef.current) {
-      gainNodeRef.current.gain.setTargetAtTime(audioVolume, audioCtxRef.current?.currentTime || 0, 0.05);
+    if (speechSynthRef.current) {
+      speechSynthRef.current.volume = audioVolume;
     }
   }, [audioVolume]);
 
+  // Update playback rate in real-time
   useEffect(() => {
-    if (audioSourceRef.current) {
-      audioSourceRef.current.playbackRate.setTargetAtTime(audioSpeed, audioCtxRef.current?.currentTime || 0, 0.05);
+    if (speechSynthRef.current && audioStatus === 'PLAYING') {
+      // Restart with new rate from current position
+      const currentProgress = speechProgressRef.current;
+      speechSynthesis.cancel();
+      const remainingText = speechTextRef.current.slice(Math.floor(currentProgress * speechTextRef.current.length));
+      if (remainingText) {
+        startSpeechFromText(remainingText, currentProgress);
+      }
     }
   }, [audioSpeed]);
+  
+  // Persist audio state on changes
+  useEffect(() => {
+    if (result && speechTextRef.current) {
+      try {
+        localStorage.setItem(AUDIO_CACHE_KEY, JSON.stringify({
+          query,
+          text: speechTextRef.current,
+          progress: speechProgressRef.current
+        }));
+      } catch (e) {}
+    }
+  }, [audioCurrentTime, result, query]);
 
   const updateAudioProgress = useCallback(() => {
-    if (audioStatus === 'PLAYING' && audioCtxRef.current) {
-      const elapsed = (audioCtxRef.current.currentTime - startTimeRef.current) * audioSpeed;
-      const current = offsetRef.current + elapsed;
-      setAudioCurrentTime(current);
+    if (audioStatus === 'PLAYING') {
+      const elapsed = (Date.now() - playbackStartTimeRef.current) / 1000 * audioSpeed;
+      const baseProgress = speechProgressRef.current * estimatedDurationRef.current;
+      const current = baseProgress + elapsed;
+      setAudioCurrentTime(Math.min(current, audioDuration));
+      
       if (current >= audioDuration) {
         setAudioStatus('IDLE');
-        offsetRef.current = 0;
+        speechProgressRef.current = 0;
         setAudioCurrentTime(0);
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
         return;
@@ -102,29 +158,48 @@ const EngineOcean: React.FC = () => {
     rafRef.current = requestAnimationFrame(updateAudioProgress);
   }, [audioStatus, audioSpeed, audioDuration]);
 
-  const startAudioNode = (buffer: AudioBuffer, offset: number) => {
-    if (!audioCtxRef.current) return;
-    
-    if (audioSourceRef.current) {
-      try { audioSourceRef.current.stop(); } catch(e){}
+  const startSpeechFromText = (text: string, progressOffset: number = 0) => {
+    if (!('speechSynthesis' in window)) {
+      alert('Speech not supported in this browser');
+      return;
     }
-
-    const source = audioCtxRef.current.createBufferSource();
-    source.buffer = buffer;
-    source.playbackRate.value = audioSpeed;
-
-    if (!gainNodeRef.current) {
-      gainNodeRef.current = audioCtxRef.current.createGain();
-      gainNodeRef.current.gain.value = audioVolume;
-      gainNodeRef.current.connect(audioCtxRef.current.destination);
-    }
-
-    source.connect(gainNodeRef.current);
-    source.start(0, offset);
     
-    audioSourceRef.current = source;
-    offsetRef.current = offset;
-    startTimeRef.current = audioCtxRef.current.currentTime;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = VOICE_LANG_MAP[selectedLanguage] || 'en-US';
+    utterance.rate = audioSpeed;
+    utterance.volume = audioVolume;
+    utterance.pitch = 1;
+    
+    // Get best voice for language
+    const voices = speechSynthesis.getVoices();
+    const langCode = VOICE_LANG_MAP[selectedLanguage] || 'en-US';
+    const preferredVoice = voices.find(v => v.lang.startsWith(langCode.split('-')[0]) && v.localService) ||
+                           voices.find(v => v.lang.startsWith(langCode.split('-')[0])) ||
+                           voices.find(v => v.default);
+    if (preferredVoice) utterance.voice = preferredVoice;
+    
+    utterance.onend = () => {
+      setAudioStatus('IDLE');
+      speechProgressRef.current = 0;
+      setAudioCurrentTime(0);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+    
+    utterance.onerror = () => {
+      setAudioStatus('IDLE');
+    };
+    
+    utterance.onboundary = (e) => {
+      if (e.name === 'word' && speechTextRef.current.length > 0) {
+        speechProgressRef.current = e.charIndex / speechTextRef.current.length;
+      }
+    };
+    
+    speechSynthRef.current = utterance;
+    speechProgressRef.current = progressOffset;
+    playbackStartTimeRef.current = Date.now();
+    
+    speechSynthesis.speak(utterance);
     setAudioStatus('PLAYING');
     
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -132,35 +207,39 @@ const EngineOcean: React.FC = () => {
   };
 
   const stopAudio = () => {
-    if (audioSourceRef.current) {
-        try { audioSourceRef.current.stop(); } catch(e){}
-        audioSourceRef.current = null;
-    }
+    speechSynthesis.cancel();
+    speechSynthRef.current = null;
     setAudioStatus('IDLE');
-    offsetRef.current = 0;
+    speechProgressRef.current = 0;
     setAudioCurrentTime(0);
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
   };
 
   const togglePauseResume = () => {
     if (audioStatus === 'PLAYING') {
-      if (audioSourceRef.current) {
-        try { audioSourceRef.current.stop(); } catch(e){}
-      }
-      const elapsed = (audioCtxRef.current!.currentTime - startTimeRef.current) * audioSpeed;
-      offsetRef.current = offsetRef.current + elapsed;
+      speechSynthesis.pause();
       setAudioStatus('PAUSED');
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    } else if (audioStatus === 'PAUSED' && audioBufferRef.current) {
-      startAudioNode(audioBufferRef.current, offsetRef.current);
+    } else if (audioStatus === 'PAUSED') {
+      speechSynthesis.resume();
+      playbackStartTimeRef.current = Date.now();
+      setAudioStatus('PLAYING');
+      rafRef.current = requestAnimationFrame(updateAudioProgress);
     }
   };
 
   const handleScrub = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newOffset = parseFloat(e.target.value);
-    setAudioCurrentTime(newOffset);
-    if (audioBufferRef.current && (audioStatus === 'PLAYING' || audioStatus === 'PAUSED')) {
-      startAudioNode(audioBufferRef.current, newOffset);
+    const newTime = parseFloat(e.target.value);
+    setAudioCurrentTime(newTime);
+    
+    if (speechTextRef.current && (audioStatus === 'PLAYING' || audioStatus === 'PAUSED')) {
+      speechSynthesis.cancel();
+      const newProgress = newTime / audioDuration;
+      const startIndex = Math.floor(newProgress * speechTextRef.current.length);
+      const remainingText = speechTextRef.current.slice(startIndex);
+      if (remainingText) {
+        startSpeechFromText(remainingText, newProgress);
+      }
     }
   };
 
@@ -261,33 +340,33 @@ const EngineOcean: React.FC = () => {
     if (!result) return;
     setShowAudioSelector(false);
     
-    // Initialize audio context immediately
-    if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({sampleRate: 24000});
-    if (audioCtxRef.current.state === 'suspended') await audioCtxRef.current.resume();
-
-    setAudioStatus('LOADING');
-    
-    // Prepare text synchronously - no async operations before speech generation
+    // Prepare full text with no word limits
     let audioText = "";
     if (choice === 'HUMANIZED') audioText = result.humanized;
     else if (choice === 'DEEP_DIVE') audioText = result.deepDive || "";
     else if (choice === 'BOTH') audioText = `${result.humanized}. ${result.deepDive || ''}. ${result.summary}`;
-
-    try {
-      // Direct audio generation - fastest path
-      const buffer = await generateSpeech(audioText, selectedLanguage);
-      if (buffer) {
-        audioBufferRef.current = buffer;
-        setAudioDuration(buffer.duration);
-        setShowAudioControls(true);
-        startAudioNode(buffer, 0);
-      } else {
-        setAudioStatus('IDLE');
-        alert("Audio synthesis failed.");
-      }
-    } catch (e) {
-      setAudioStatus('IDLE');
+    
+    // Clean text for speech - remove special chars but keep punctuation
+    audioText = audioText.replace(/[\[\]\(\)\*\#\_\~\`\>\/\\\|]/g, ' ').replace(/\s+/g, ' ').trim();
+    
+    if (!audioText) {
+      alert('No content to play');
+      return;
     }
+    
+    // Store for persistence and scrubbing
+    speechTextRef.current = audioText;
+    speechProgressRef.current = 0;
+    
+    // Estimate duration: ~150 words per minute at 1x speed
+    const wordCount = audioText.split(/\s+/).length;
+    const estimatedDuration = (wordCount / 150) * 60;
+    estimatedDurationRef.current = estimatedDuration;
+    setAudioDuration(estimatedDuration);
+    setShowAudioControls(true);
+    
+    // Start playback immediately - no loading delay
+    startSpeechFromText(audioText, 0);
   };
 
   const renderFormattedText = (text: string) => {
