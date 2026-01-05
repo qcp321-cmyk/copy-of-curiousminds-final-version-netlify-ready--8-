@@ -398,36 +398,79 @@ const EngineOcean: React.FC = () => {
     const cleanLine = (line: string) => line.replace(/[*#_~`>\[\]\(\)\/\\]/g, '').trim();
     const lines = text.split('\n');
 
+    // Section icons mapping
+    const sectionIcons: Record<string, React.ReactNode> = {
+      'abstract': <BookOpen className="w-4 h-4" />,
+      'mechanics': <Activity className="w-4 h-4" />,
+      'analysis': <Microscope className="w-4 h-4" />,
+      'visualisation': <ImageIcon className="w-4 h-4" />,
+      'visualization': <ImageIcon className="w-4 h-4" />,
+      'diagram': <ImageIcon className="w-4 h-4" />,
+      'examples': <Sparkles className="w-4 h-4" />,
+      'example': <Sparkles className="w-4 h-4" />,
+      'roadmap': <Target className="w-4 h-4" />,
+      'synergy': <Activity className="w-4 h-4" />,
+      'curriculum': <GraduationCap className="w-4 h-4" />,
+      'references': <ExternalLink className="w-4 h-4" />,
+      'formula': <Bot className="w-4 h-4" />,
+      'equation': <Bot className="w-4 h-4" />,
+      'key': <Info className="w-4 h-4" />,
+      'summary': <CheckCircle2 className="w-4 h-4" />,
+      'conclusion': <CheckCircle2 className="w-4 h-4" />
+    };
+
+    const getSectionIcon = (header: string) => {
+      const lower = header.toLowerCase();
+      for (const [key, icon] of Object.entries(sectionIcons)) {
+        if (lower.includes(key)) return icon;
+      }
+      return <Waves className="w-4 h-4" />;
+    };
+
     return lines.map((line, i) => {
         const cleaned = cleanLine(line);
-        if (!cleaned && !line.includes('|')) return <div key={i} className="h-4" />;
+        if (!cleaned && !line.includes('|')) return <div key={i} className="h-3" />;
 
-        const isHeader = cleaned.match(/^[A-Z\s:]{4,40}$/) || 
+        // Detect section headers
+        const isHeader = cleaned.match(/^[A-Z\s:]{4,50}$/) || 
                          cleaned.toLowerCase().includes('abstract') || 
                          cleaned.toLowerCase().includes('mechanics') ||
                          cleaned.toLowerCase().includes('analysis') ||
                          cleaned.toLowerCase().includes('visualisation') ||
+                         cleaned.toLowerCase().includes('visualization') ||
                          cleaned.toLowerCase().includes('diagram') ||
+                         cleaned.toLowerCase().includes('examples') ||
                          cleaned.toLowerCase().includes('roadmap') ||
                          cleaned.toLowerCase().includes('synergy') ||
+                         cleaned.toLowerCase().includes('curriculum') ||
+                         cleaned.toLowerCase().includes('formula') ||
+                         cleaned.toLowerCase().includes('equation') ||
+                         cleaned.toLowerCase().includes('key points') ||
+                         cleaned.toLowerCase().includes('key concepts') ||
+                         cleaned.toLowerCase().includes('conclusion') ||
                          cleaned.toLowerCase().includes('references');
 
         if (isHeader) {
             return (
-              <div key={i}>
-                <h3 className="text-xl sm:text-2xl font-black text-cyan-400 mt-10 mb-5 uppercase tracking-tighter italic border-b border-white/5 pb-2">
-                  {cleaned}
-                </h3>
-                {(cleaned.toLowerCase().includes('visualisation') || cleaned.toLowerCase().includes('diagram')) && result?.imageUrl && (
+              <div key={i} className="mt-10 first:mt-0">
+                <div className="flex items-center gap-3 mb-5 pb-3 border-b border-cyan-500/20">
+                  <div className="p-2 bg-cyan-500/10 rounded-lg text-cyan-400">
+                    {getSectionIcon(cleaned)}
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-black text-cyan-400 uppercase tracking-tight italic">
+                    {cleaned}
+                  </h3>
+                </div>
+                {(cleaned.toLowerCase().includes('visualisation') || cleaned.toLowerCase().includes('visualization') || cleaned.toLowerCase().includes('diagram')) && result?.imageUrl && (
                   <div className="my-8 animate-in fade-in zoom-in-95 duration-1000">
-                    <div className="relative group overflow-hidden rounded-[2rem] border border-white/10 shadow-2xl aspect-video bg-black/40">
+                    <div className="relative group overflow-hidden rounded-[2rem] border border-cyan-500/20 shadow-2xl aspect-video bg-gradient-to-br from-cyan-950/30 to-black">
                       <img src={result.imageUrl} alt="Neural Synthesis Visualization" className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
-                      <div className="absolute bottom-6 left-6 flex items-center gap-3">
+                      <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 flex items-center gap-3">
                          <div className="p-2 bg-cyan-500 rounded-lg text-black shadow-lg">
                             <ImageIcon className="w-4 h-4" />
                          </div>
-                         <p className="text-[10px] font-black uppercase tracking-widest text-white drop-shadow-md">Generated Schematic Visualization</p>
+                         <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-white drop-shadow-md">AI-Generated Schematic</p>
                       </div>
                     </div>
                   </div>
@@ -436,11 +479,65 @@ const EngineOcean: React.FC = () => {
             );
         }
 
-        if (line.includes('|') || line.includes('->') || line.includes('+--')) {
-            return <pre key={i} className="bg-black/60 p-4 rounded-xl font-mono text-[10px] sm:text-xs text-cyan-500/80 overflow-x-auto my-4 border border-cyan-500/10 shadow-inner">{line}</pre>;
+        // Code blocks / diagrams / formulas
+        if (line.includes('|') || line.includes('->') || line.includes('+--') || line.includes('===') || line.match(/^[\s]*[\d\.]+[\s]*[+\-*/=]/)) {
+            return (
+              <pre key={i} className="bg-gradient-to-r from-cyan-950/30 to-black/60 p-4 sm:p-5 rounded-xl font-mono text-[10px] sm:text-xs text-cyan-400 overflow-x-auto my-4 border border-cyan-500/20 shadow-inner">
+                {line}
+              </pre>
+            );
         }
 
-        return <p key={i} className="mb-6 text-gray-300 leading-relaxed font-light text-sm sm:text-base">{cleaned}</p>;
+        // Numbered list items (1., 2., etc.)
+        const numberedMatch = cleaned.match(/^(\d+)\.\s+(.+)/);
+        if (numberedMatch) {
+          return (
+            <div key={i} className="flex gap-4 mb-4 group">
+              <div className="shrink-0 w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 font-black text-sm group-hover:bg-cyan-500/20 transition-all">
+                {numberedMatch[1]}
+              </div>
+              <p className="flex-1 text-gray-300 leading-relaxed text-sm sm:text-base pt-1">{numberedMatch[2]}</p>
+            </div>
+          );
+        }
+
+        // Bullet points (-, •, *)
+        const bulletMatch = cleaned.match(/^[\-•\*]\s+(.+)/);
+        if (bulletMatch) {
+          return (
+            <div key={i} className="flex gap-3 mb-3 pl-2">
+              <div className="shrink-0 w-2 h-2 rounded-full bg-cyan-500 mt-2"></div>
+              <p className="flex-1 text-gray-300 leading-relaxed text-sm sm:text-base">{bulletMatch[1]}</p>
+            </div>
+          );
+        }
+
+        // Key-value pairs (Term: Definition)
+        const kvMatch = cleaned.match(/^([A-Za-z\s]{2,30}):\s+(.+)/);
+        if (kvMatch && !cleaned.toLowerCase().includes('http')) {
+          return (
+            <div key={i} className="mb-4 p-4 bg-white/[0.02] rounded-xl border border-white/5 hover:border-cyan-500/20 transition-all">
+              <span className="text-cyan-400 font-bold text-xs uppercase tracking-wider">{kvMatch[1]}</span>
+              <p className="text-gray-300 mt-1 text-sm sm:text-base leading-relaxed">{kvMatch[2]}</p>
+            </div>
+          );
+        }
+
+        // Example callouts
+        if (cleaned.toLowerCase().startsWith('example') || cleaned.toLowerCase().startsWith('e.g.') || cleaned.toLowerCase().startsWith('for instance')) {
+          return (
+            <div key={i} className="mb-5 p-4 sm:p-5 bg-gradient-to-r from-purple-500/10 to-transparent rounded-xl border-l-4 border-purple-500">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="w-4 h-4 text-purple-400" />
+                <span className="text-[9px] font-black text-purple-400 uppercase tracking-widest">Example</span>
+              </div>
+              <p className="text-gray-300 leading-relaxed text-sm sm:text-base italic">{cleaned}</p>
+            </div>
+          );
+        }
+
+        // Regular paragraph
+        return <p key={i} className="mb-5 text-gray-300 leading-[1.8] font-light text-sm sm:text-base">{cleaned}</p>;
     });
   };
 
