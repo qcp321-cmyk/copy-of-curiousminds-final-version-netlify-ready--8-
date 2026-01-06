@@ -15,10 +15,10 @@ const DEFAULT_ADMIN_PASS = 'admin2025#';
 // Per-user limits removed - using Global API Limits only
 
 const DEFAULT_API_LIMITS = {
-  globalLimit: 100000,
-  scenarioEngineLimit: 100000,
-  beYouEngineLimit: 100000,
-  oceanEngineLimit: 100000
+  globalLimit: 10,
+  scenarioEngineLimit: 10,
+  beYouEngineLimit: 10,
+  oceanEngineLimit: 10
 };
 
 const API_LIMITS_KEY = 'curious_api_limits_v14';
