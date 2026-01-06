@@ -460,6 +460,7 @@ const ScenarioGenerator: React.FC<ScenarioGeneratorProps> = ({ currentUser, onRe
   const startBeYouAssessment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) { onRequireAuth(); return; }
+    if (!mockBackend.checkUsageLimit(currentUser.id, 'BEYOU')) { setShowLimitExhausted(true); return; }
     setLoading(true);
     
     mockBackend.trackEvent(currentUser.id, 'FORM_SUBMISSION', 'beYOU prediction initialization', userDetails);

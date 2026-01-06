@@ -12,11 +12,7 @@ const BOOKINGS_KEY = 'curious_bookings_v14';
 
 const DEFAULT_ADMIN_PASS = 'admin2025#';
 
-const DEFAULT_LIMITS: UserUsageLimits = {
-  scenarioLimit: 3,
-  beYouLimit: 3,
-  oceanLimit: 5
-};
+// Per-user limits removed - using Global API Limits only
 
 const DEFAULT_API_LIMITS = {
   globalLimit: 100000,
@@ -261,7 +257,7 @@ class MockBackendService {
       device: this.getDeviceSignature(),
       role: 'DEMO', 
       usage: { scenarioCount: 0, beYouCount: 0, oceanCount: 0 },
-      limits: { ...DEFAULT_LIMITS }, 
+      limits: { scenarioLimit: 999999, beYouLimit: 999999, oceanLimit: 999999 }, 
       registeredAt: Date.now(),
       lastActiveAt: Date.now(),
       referralCode: this.generateReferralCode(details?.name || 'USER'),
@@ -356,11 +352,8 @@ class MockBackendService {
   checkUsageLimit(userId: string, mode: 'SCENARIO' | 'BEYOU' | 'OCEAN'): boolean {
     const user = this.users.find(u => u.id === userId);
     if (!user || user.isBlocked) return false;
-    const limits = user.limits || DEFAULT_LIMITS;
-    if (mode === 'SCENARIO') return user.usage.scenarioCount < limits.scenarioLimit;
-    if (mode === 'BEYOU') return user.usage.beYouCount < limits.beYouLimit;
-    if (mode === 'OCEAN') return user.usage.oceanCount < limits.oceanLimit;
-    return false;
+    // Now enforces Global API Limits from Admin Dashboard
+    return this.checkApiLimit(mode);
   }
 
   incrementUsage(userId: string, mode: 'SCENARIO' | 'BEYOU' | 'OCEAN') {
@@ -372,6 +365,8 @@ class MockBackendService {
       user.lastActiveAt = Date.now();
       this.saveData();
     }
+    // Also track Global API usage
+    this.incrementApiUsage(mode);
   }
 
   trackEvent(userId: string | null, type: InteractionEvent['type'], details?: string, payload?: any, timestamp: number = Date.now()) {
