@@ -21,6 +21,7 @@ const ALL_SECTIONS = [
   { id: 'OVERVIEW', icon: Activity, label: 'Overview' },
   { id: 'VISITORS', icon: Radar, label: 'Active Visitors' },
   { id: 'USERS', icon: Gauge, label: 'Usage Limits' },
+  { id: 'API_LIMITS', icon: Zap, label: 'API Limits' },
   { id: 'BOOKINGS', icon: Ticket, label: 'Demo Bookings' },
   { id: 'ARCHIVE', icon: Inbox, label: 'Visitor History' },
   { id: 'VOICE_MESSAGES', icon: MessageSquare, label: 'Voice Messages' },
@@ -59,6 +60,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
   const [editLimits, setEditLimits] = useState({ scenarioLimit: 3, beYouLimit: 3, oceanLimit: 5 });
   const [usageSearch, setUsageSearch] = useState('');
 
+  // API Limits State
+  const [apiLimits, setApiLimits] = useState({ globalLimit: 100000, scenarioEngineLimit: 100000, beYouEngineLimit: 100000, oceanEngineLimit: 100000 });
+  const [apiUsage, setApiUsage] = useState({ total: 0, scenarioEngine: 0, beYouEngine: 0, oceanEngine: 0 });
+  const [editingApiLimits, setEditingApiLimits] = useState(false);
+  const [tempApiLimits, setTempApiLimits] = useState({ ...apiLimits });
+
   const currentSessionId = useMemo(() => mockBackend.getCurrentSessionId(), []);
 
   const fetchData = () => {
@@ -68,6 +75,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
     setBookings(mockBackend.getDemoBookings());
     setNeuralComms(mockBackend.getNeuralComms());
     setAdminCredentials(mockBackend.getAdminCredentials());
+    setApiLimits(mockBackend.getApiLimits());
+    setApiUsage(mockBackend.getApiUsage());
   };
 
   useEffect(() => {
@@ -364,6 +373,138 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onClose }) => {
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {/* API Limits Section */}
+            {activeTab === 'API_LIMITS' && (
+              <div className="space-y-6 animate-in fade-in max-w-4xl mx-auto">
+                <div className="flex flex-col sm:flex-row justify-between gap-4">
+                  <div>
+                    <h3 className="text-2xl font-black text-white uppercase italic">API Limits</h3>
+                    <p className="text-[9px] text-gray-500 uppercase tracking-widest mt-1">Global engine limits // Real-time sync</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="px-3 py-1.5 bg-green-600/20 text-green-500 rounded-lg text-[8px] font-black uppercase flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                      Live Sync
+                    </div>
+                  </div>
+                </div>
+
+                {/* Global Usage Overview */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-white/5 border border-white/10 p-5 rounded-2xl">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Zap className="w-4 h-4 text-cyan-500" />
+                      <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Global Usage</span>
+                    </div>
+                    <p className="text-2xl font-black text-white">{apiUsage.total.toLocaleString()}</p>
+                    <p className="text-[9px] text-gray-500 mt-1">of {apiLimits.globalLimit.toLocaleString()}</p>
+                    <div className="h-1.5 bg-white/5 rounded-full mt-3 overflow-hidden">
+                      <div className="h-full bg-cyan-500 rounded-full transition-all" style={{width: `${Math.min((apiUsage.total / apiLimits.globalLimit) * 100, 100)}%`}} />
+                    </div>
+                  </div>
+                  <div className="bg-white/5 border border-cyan-500/20 p-5 rounded-2xl">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Activity className="w-4 h-4 text-cyan-500" />
+                      <span className="text-[8px] font-black text-cyan-500 uppercase tracking-widest">Scenario Engine</span>
+                    </div>
+                    <p className="text-2xl font-black text-white">{apiUsage.scenarioEngine.toLocaleString()}</p>
+                    <p className="text-[9px] text-gray-500 mt-1">of {apiLimits.scenarioEngineLimit.toLocaleString()}</p>
+                    <div className="h-1.5 bg-white/5 rounded-full mt-3 overflow-hidden">
+                      <div className="h-full bg-cyan-600 rounded-full transition-all" style={{width: `${Math.min((apiUsage.scenarioEngine / apiLimits.scenarioEngineLimit) * 100, 100)}%`}} />
+                    </div>
+                  </div>
+                  <div className="bg-white/5 border border-purple-500/20 p-5 rounded-2xl">
+                    <div className="flex items-center gap-2 mb-3">
+                      <User className="w-4 h-4 text-purple-500" />
+                      <span className="text-[8px] font-black text-purple-500 uppercase tracking-widest">BeYou Engine</span>
+                    </div>
+                    <p className="text-2xl font-black text-white">{apiUsage.beYouEngine.toLocaleString()}</p>
+                    <p className="text-[9px] text-gray-500 mt-1">of {apiLimits.beYouEngineLimit.toLocaleString()}</p>
+                    <div className="h-1.5 bg-white/5 rounded-full mt-3 overflow-hidden">
+                      <div className="h-full bg-purple-600 rounded-full transition-all" style={{width: `${Math.min((apiUsage.beYouEngine / apiLimits.beYouEngineLimit) * 100, 100)}%`}} />
+                    </div>
+                  </div>
+                  <div className="bg-white/5 border border-emerald-500/20 p-5 rounded-2xl">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Waves className="w-4 h-4 text-emerald-500" />
+                      <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Ocean Engine</span>
+                    </div>
+                    <p className="text-2xl font-black text-white">{apiUsage.oceanEngine.toLocaleString()}</p>
+                    <p className="text-[9px] text-gray-500 mt-1">of {apiLimits.oceanEngineLimit.toLocaleString()}</p>
+                    <div className="h-1.5 bg-white/5 rounded-full mt-3 overflow-hidden">
+                      <div className="h-full bg-emerald-600 rounded-full transition-all" style={{width: `${Math.min((apiUsage.oceanEngine / apiLimits.oceanEngineLimit) * 100, 100)}%`}} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Edit Limits Panel */}
+                <div className="bg-white/[0.03] border border-white/10 p-6 sm:p-8 rounded-[2rem]">
+                  <div className="flex justify-between items-center mb-6">
+                    <h4 className="text-lg font-black text-white uppercase italic">Configure Limits</h4>
+                    {!editingApiLimits ? (
+                      <button onClick={() => { setEditingApiLimits(true); setTempApiLimits({...apiLimits}); }} className="px-4 py-2 bg-cyan-600 text-white text-[9px] font-black uppercase rounded-xl flex items-center gap-2">
+                        <Settings className="w-3 h-3" /> Edit Limits
+                      </button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button onClick={() => { mockBackend.updateApiLimits(tempApiLimits); setEditingApiLimits(false); fetchData(); }} className="px-4 py-2 bg-green-600 text-white text-[9px] font-black uppercase rounded-xl flex items-center gap-2">
+                          <Save className="w-3 h-3" /> Save
+                        </button>
+                        <button onClick={() => setEditingApiLimits(false)} className="px-4 py-2 bg-white/5 text-gray-400 text-[9px] font-black uppercase rounded-xl">Cancel</button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                        <Zap className="w-3 h-3 text-cyan-500" /> Global API Limit
+                      </label>
+                      {editingApiLimits ? (
+                        <input type="number" min="0" value={tempApiLimits.globalLimit} onChange={e => setTempApiLimits({...tempApiLimits, globalLimit: parseInt(e.target.value) || 0})} className="w-full bg-white/5 border border-cyan-500/30 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+                      ) : (
+                        <p className="text-xl font-black text-white">{apiLimits.globalLimit.toLocaleString()}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[8px] font-black text-cyan-500 uppercase tracking-widest flex items-center gap-2">
+                        <Activity className="w-3 h-3" /> Scenario Engine Limit
+                      </label>
+                      {editingApiLimits ? (
+                        <input type="number" min="0" value={tempApiLimits.scenarioEngineLimit} onChange={e => setTempApiLimits({...tempApiLimits, scenarioEngineLimit: parseInt(e.target.value) || 0})} className="w-full bg-white/5 border border-cyan-500/30 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+                      ) : (
+                        <p className="text-xl font-black text-white">{apiLimits.scenarioEngineLimit.toLocaleString()}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[8px] font-black text-purple-500 uppercase tracking-widest flex items-center gap-2">
+                        <User className="w-3 h-3" /> BeYou Engine Limit
+                      </label>
+                      {editingApiLimits ? (
+                        <input type="number" min="0" value={tempApiLimits.beYouEngineLimit} onChange={e => setTempApiLimits({...tempApiLimits, beYouEngineLimit: parseInt(e.target.value) || 0})} className="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+                      ) : (
+                        <p className="text-xl font-black text-white">{apiLimits.beYouEngineLimit.toLocaleString()}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[8px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2">
+                        <Waves className="w-3 h-3" /> Ocean Engine Limit
+                      </label>
+                      {editingApiLimits ? (
+                        <input type="number" min="0" value={tempApiLimits.oceanEngineLimit} onChange={e => setTempApiLimits({...tempApiLimits, oceanEngineLimit: parseInt(e.target.value) || 0})} className="w-full bg-white/5 border border-emerald-500/30 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+                      ) : (
+                        <p className="text-xl font-black text-white">{apiLimits.oceanEngineLimit.toLocaleString()}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-6 border-t border-white/5">
+                    <p className="text-[8px] text-gray-600 uppercase tracking-widest">Default: 100,000 requests per engine • Real-time sync enabled • Admin & Local Admin access</p>
+                  </div>
                 </div>
               </div>
             )}

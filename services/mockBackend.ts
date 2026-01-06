@@ -18,7 +18,16 @@ const DEFAULT_LIMITS: UserUsageLimits = {
   oceanLimit: 5
 };
 
-export const ALL_PERMISSIONS = ['OVERVIEW', 'VISITORS', 'USERS', 'ARCHIVE', 'VOICE_MESSAGES', 'BOOKINGS', 'LOGS', 'ACCESS', 'SETTINGS'];
+const DEFAULT_API_LIMITS = {
+  globalLimit: 100000,
+  scenarioEngineLimit: 100000,
+  beYouEngineLimit: 100000,
+  oceanEngineLimit: 100000
+};
+
+const API_LIMITS_KEY = 'curious_api_limits_v14';
+
+export const ALL_PERMISSIONS = ['OVERVIEW', 'VISITORS', 'USERS', 'API_LIMITS', 'ARCHIVE', 'VOICE_MESSAGES', 'BOOKINGS', 'LOGS', 'ACCESS', 'SETTINGS'];
 
 class MockBackendService {
   private users: UserProfile[] = [];
@@ -31,6 +40,8 @@ class MockBackendService {
     adminUsers: [],
     liveVisitorBase: 0 
   };
+  private apiLimits = { ...DEFAULT_API_LIMITS };
+  private apiUsage = { total: 0, scenarioEngine: 0, beYouEngine: 0, oceanEngine: 0 };
   private systemStartTime = Date.now();
   private currentSessionId: string;
   private currentSessionLocation: UserLocation = { city: 'Mumbai', country: 'India', lat: 19.0760, lng: 72.8777, flag: '🇮🇳' };
@@ -166,6 +177,9 @@ class MockBackendService {
 
       const storedBookings = localStorage.getItem(BOOKINGS_KEY);
       if (storedBookings) this.demoBookings = JSON.parse(storedBookings);
+
+      const storedApiLimits = localStorage.getItem(API_LIMITS_KEY);
+      if (storedApiLimits) this.apiLimits = JSON.parse(storedApiLimits);
     } catch (e) { console.error("Restore failed", e); }
   }
 
@@ -178,6 +192,7 @@ class MockBackendService {
     localStorage.setItem(NEURAL_COMMS_KEY, JSON.stringify(this.neuralComms));
     localStorage.setItem(BLOCKED_ENTITIES_KEY, JSON.stringify(this.blockedEntities));
     localStorage.setItem(BOOKINGS_KEY, JSON.stringify(this.demoBookings));
+    localStorage.setItem(API_LIMITS_KEY, JSON.stringify(this.apiLimits));
   }
 
   public toggleBookmark(bookmark: Omit<Bookmark, 'id' | 'timestamp'>) {
@@ -381,6 +396,33 @@ class MockBackendService {
   }
 
   getCurrentSessionId(): string { return this.currentSessionId; }
+
+  // API Limits Management
+  getApiLimits() { return { ...this.apiLimits }; }
+  
+  getApiUsage() { return { ...this.apiUsage }; }
+  
+  updateApiLimits(limits: typeof DEFAULT_API_LIMITS) {
+    this.apiLimits = { ...limits };
+    this.saveData();
+    window.dispatchEvent(new Event('storage'));
+    this.trackEvent(null, 'SYSTEM', `API limits updated: Global=${limits.globalLimit}`);
+  }
+  
+  incrementApiUsage(engine: 'SCENARIO' | 'BEYOU' | 'OCEAN') {
+    this.apiUsage.total++;
+    if (engine === 'SCENARIO') this.apiUsage.scenarioEngine++;
+    if (engine === 'BEYOU') this.apiUsage.beYouEngine++;
+    if (engine === 'OCEAN') this.apiUsage.oceanEngine++;
+  }
+  
+  checkApiLimit(engine: 'SCENARIO' | 'BEYOU' | 'OCEAN'): boolean {
+    if (this.apiUsage.total >= this.apiLimits.globalLimit) return false;
+    if (engine === 'SCENARIO') return this.apiUsage.scenarioEngine < this.apiLimits.scenarioEngineLimit;
+    if (engine === 'BEYOU') return this.apiUsage.beYouEngine < this.apiLimits.beYouEngineLimit;
+    if (engine === 'OCEAN') return this.apiUsage.oceanEngine < this.apiLimits.oceanEngineLimit;
+    return true;
+  }
 }
 
 export const mockBackend = new MockBackendService();
