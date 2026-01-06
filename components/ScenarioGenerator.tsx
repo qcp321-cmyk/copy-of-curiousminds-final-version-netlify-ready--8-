@@ -419,7 +419,7 @@ const ScenarioGenerator: React.FC<ScenarioGeneratorProps> = ({ currentUser, onRe
         setData(result);
         mockBackend.incrementUsage(currentUser.id, 'SCENARIO');
         window.dispatchEvent(new CustomEvent('trigger-demo-booking'));
-        
+            
         // Use global Lenis for programmatic scrolling
         const lenis = (window as any).lenis;
         if (lenis && resultRef.current) {
@@ -427,7 +427,10 @@ const ScenarioGenerator: React.FC<ScenarioGeneratorProps> = ({ currentUser, onRe
         } else {
           setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth' }), 200);
         }
-    } catch (err) { alert("Synthesizer overloaded."); } finally { setLoading(false); }
+    } catch (err: any) {
+      console.error('Scenario Error:', err);
+      alert(err?.message?.includes('API') ? 'Service temporarily unavailable. Please try again.' : 'Synthesizer overloaded.');
+    } finally { setLoading(false); }
   };
 
   const handleSpeakMission = async () => {
@@ -469,7 +472,10 @@ const ScenarioGenerator: React.FC<ScenarioGeneratorProps> = ({ currentUser, onRe
       const qs = await generateAssessmentQuestions(userDetails);
       setAssessmentQuestions(qs);
       setBeYouStep('ASSESSMENT');
-    } catch (e) { alert("Future self nexus failed."); } finally { setLoading(false); }
+    } catch (e: any) {
+      console.error('Assessment Error:', e);
+      alert(e?.message?.includes('API') ? 'Service temporarily unavailable. Please try again.' : 'Future self nexus failed.');
+    } finally { setLoading(false); }
   };
 
   const submitAssessmentAnswer = () => {
@@ -503,7 +509,11 @@ const ScenarioGenerator: React.FC<ScenarioGeneratorProps> = ({ currentUser, onRe
         mockBackend.incrementUsage(currentUser.id, 'BEYOU');
         window.dispatchEvent(new CustomEvent('trigger-demo-booking'));
       }
-    } catch (error) { alert("Nexus alignment failed."); setBeYouStep('DETAILS'); }
+    } catch (error: any) {
+      console.error('Persona Error:', error);
+      alert(error?.message?.includes('API') ? 'Service temporarily unavailable. Please try again.' : 'Nexus alignment failed.');
+      setBeYouStep('DETAILS');
+    }
   };
 
   const handleChatSubmit = async (e: React.FormEvent) => {

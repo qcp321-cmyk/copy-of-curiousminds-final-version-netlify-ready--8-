@@ -319,12 +319,14 @@ const EngineOcean: React.FC = () => {
     mockBackend.trackEvent(userId, 'FORM_SUBMISSION', 'Engine Ocean inquiry', { query: processedQuery, grade, marks: currentMarks, difficulty, isSyllabusMode });
 
     try {
-      const [data, imageUrl] = await Promise.all([
-        engineOceanQuery(processedQuery, grade, currentMarks, difficulty, isSyllabusMode),
-        generateMissionImage(`Academic whiteboard sketch of ${processedQuery} for educational node ${grade}`)
-      ]);
+      // Load content and image independently - image failure won't block content
+      const dataPromise = engineOceanQuery(processedQuery, grade, currentMarks, difficulty, isSyllabusMode);
+      const imagePromise = generateMissionImage(`Academic whiteboard sketch of ${processedQuery} for educational node ${grade}`).catch(() => '');
 
-      const finalResult = { ...data, imageUrl };
+      const data = await dataPromise;
+      const imageUrl = await imagePromise;
+
+      const finalResult = { ...data, imageUrl: imageUrl || '' };
       setResult(finalResult);
       
       // Store in session history for memory-based recaps
@@ -339,7 +341,10 @@ const EngineOcean: React.FC = () => {
       } else {
         setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth' }), 200);
       }
-    } catch (e) { alert("Resolution failed."); } finally { setLoading(false); }
+    } catch (e: any) {
+      console.error('Ocean Query Error:', e);
+      alert(e?.message?.includes('API') ? 'Service temporarily unavailable. Please try again.' : 'Resolution failed.');
+    } finally { setLoading(false); }
   };
 
   const handleDeepDive = async () => {
@@ -348,7 +353,10 @@ const EngineOcean: React.FC = () => {
     try {
       const dd = await deepDiveQuery(query, result.humanized);
       setResult(prev => prev ? { ...prev, deepDive: dd } : null);
-    } catch (e) { alert("Neural expansion failed."); } finally { setDeepDiveLoading(false); }
+    } catch (e) {
+      console.error('Deep Dive Error:', e);
+      setResult(prev => prev ? { ...prev, deepDive: 'Deep dive temporarily unavailable.' } : null);
+    } finally { setDeepDiveLoading(false); }
   };
 
   const initiateAudioSelector = () => {
@@ -464,7 +472,12 @@ const EngineOcean: React.FC = () => {
                 {(cleaned.toLowerCase().includes('visualisation') || cleaned.toLowerCase().includes('visualization') || cleaned.toLowerCase().includes('diagram')) && result?.imageUrl && (
                   <div className="my-8 animate-in fade-in zoom-in-95 duration-1000">
                     <div className="relative group overflow-hidden rounded-[2rem] border border-cyan-500/20 shadow-2xl aspect-video bg-gradient-to-br from-cyan-950/30 to-black">
-                      <img src={result.imageUrl} alt="Neural Synthesis Visualization" className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
+                      <img 
+                        src={result.imageUrl} 
+                        alt="Neural Synthesis Visualization" 
+                        className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" 
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
                       <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 flex items-center gap-3">
                          <div className="p-2 bg-cyan-500 rounded-lg text-black shadow-lg">
